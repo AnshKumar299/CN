@@ -3,16 +3,33 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 
 #define PORT 8000
 #define SERVER_IP "127.0.0.1"
 #define BUFFER_SIZE 1024
 
+int sock;
+char buffer[BUFFER_SIZE];
+
+void* receive_messages(void* arg) {
+    while (1) {
+        memset(buffer, 0, sizeof(buffer));
+        int valread = read(sock, buffer, BUFFER_SIZE);
+        if (valread > 0) {
+            buffer[valread] = '\0';  // Null-terminate the received message
+            printf("Server: %s\n", buffer);
+            if (strcmp(buffer, "bye") == 0) {
+                printf("Server terminated the connection.\n");
+                close(sock);
+                exit(0);
+            }
+        }
+    }
+}
+
 int main() {
-    int sock;
-    int nj=0;
     struct sockaddr_in serv_addr;
-    char buffer[BUFFER_SIZE] = {0};
 
     // Create socket
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -36,21 +53,30 @@ int main() {
     }
 
     printf("Connected to server!\n");
-    while(1){
-    if(nj==5)break;
-    // Send message
-    char *message1 = "Hello from client!";
-    char * message2="hiii bhai";
-    send(sock, message2, strlen(message2), 0);
 
-    // Receive response from server
-    int valread = read(sock, buffer, BUFFER_SIZE);
-    printf("Server response: %s\n", buffer);
-    nj++;
-}
-    // Close socket
-    close(sock);
+    // Create a thread to handle receiving messages from the server
+    pthread_t recv_thread;
+    pthread_create(&recv_thread, NULL, receive_messages, NULL);
+
+    while (1) {
+        printf("Enter message: ");
+        fgets(buffer, BUFFER_SIZE, stdin);
+        buffer[strcspn(buffer, "\n")] = 0;  // Remove newline character from the input
+
+        // If the client types "bye", close the connection
+        if (strcmp(buffer, "bye") == 0) {
+            send(sock, buffer, strlen(buffer), 0);
+            printf("You terminated the connection.\n");
+            close(sock);
+            break;
+        }
+
+        // Send message to server
+        send(sock, buffer, strlen(buffer), 0);
+    }
+
+    // Wait for the receive thread to finish
+    pthread_join(recv_thread, NULL);
 
     return 0;
 }
-
