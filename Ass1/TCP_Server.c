@@ -1,18 +1,39 @@
-// Server Code (server.c)
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 
 #define PORT 8000
 #define BUFFER_SIZE 1024
 
+int new_socket;
+char buffer[BUFFER_SIZE];
+
+void* send_messages(void* arg) {
+    while (1) {
+        printf("Enter message to send to client: ");
+        fgets(buffer, BUFFER_SIZE, stdin);
+        buffer[strcspn(buffer, "\n")] = 0;  // Remove newline character from the input
+
+        // If the server types "bye", close the connection
+        if (strcmp(buffer, "bye") == 0) {
+            send(new_socket, buffer, strlen(buffer), 0);
+            printf("You terminated the connection.\n");
+            close(new_socket);
+            exit(0);
+        }
+
+        // Send message to client
+        send(new_socket, buffer, strlen(buffer), 0);
+    }
+}
+
 int main() {
-    int server_fd,op=0, new_socket;
+    int server_fd;
     struct sockaddr_in address;
     int addrlen = sizeof(address);
-    char buffer[BUFFER_SIZE] = {0};
 
     // Create socket
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
@@ -22,7 +43,7 @@ int main() {
 
     // Configure address structure
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr =htonl( INADDR_ANY);
+    address.sin_addr.s_addr = htonl(INADDR_ANY);
     address.sin_port = htons(PORT);
 
     // Bind socket
@@ -37,24 +58,41 @@ int main() {
         exit(EXIT_FAILURE);
     }
     printf("Server listening on port %d\n", PORT);
+
     // Accept connection
     if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
         perror("Accept failed");
         exit(EXIT_FAILURE);
     }
-    while(1){
-    if(op==5) break;
-    // Read message from client
-    read(new_socket, buffer, BUFFER_SIZE);
-    printf("Client: %s\n", buffer);
 
-    // Send response to client
-    send(new_socket, "Message received", strlen("Message received"), 0);
-    op++;
-   }
+    printf("Client connected!\n");
+
+    // Create a thread to handle sending messages to the client
+    pthread_t send_thread;
+    pthread_create(&send_thread, NULL, send_messages, NULL);
+
+    while (1) {
+        memset(buffer, 0, sizeof(buffer));
+        int valread = read(new_socket, buffer, BUFFER_SIZE);
+        if (valread <= 0) {
+            printf("Client disconnected or error occurred\n");
+            break;
+        }
+        printf("Client: %s\n", buffer);
+
+        // If the client sends "bye", terminate the connection
+        if (strcmp(buffer, "bye") == 0) {
+            printf("Client terminated the connection.\n");
+            close(new_socket);
+            break;
+        }
+    }
+
+    // Wait for the send thread to finish
+    pthread_join(send_thread, NULL);
+
     // Close socket
-    close(new_socket);
     close(server_fd);
+
     return 0;
 }
-
