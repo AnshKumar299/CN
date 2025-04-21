@@ -7,7 +7,7 @@ int main(){
     int sockfd,returnvalue,len=100,n;
     unsigned int addrlen;
     unsigned short serv_port=25000;
-    char serv_ip[]="192.168.3.1";
+    char serv_ip[]="127.0.0.1";
     char text[]="abcde";
     char rtext[100];
     struct sockaddr_in servaddr;
