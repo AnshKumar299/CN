@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <windows.h>
+#include <unistd.h>
 
 #define TOTAL_FRAMES 10
 #define WINDOW_SIZE 4
@@ -12,7 +12,7 @@ int isLost() {
 }
 
 void delay(int ms) {
-    Sleep(ms * 1000);
+    usleep(ms * 1000);
 }
 
 void nonNACK_GBN() {
