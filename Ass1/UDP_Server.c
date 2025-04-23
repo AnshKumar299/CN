@@ -1,52 +1,61 @@
+// udp_server.c
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <ctype.h>
+
+#define BUF_SIZE 1000
 
 int main() {
-    short int n = 0, m = 0;
-    int len = 100;
-    int addrlen;
-    unsigned short serv_port = 25000;
-    short sockfd;
-    char serv_ip[] = "127.0.0.1"; // Using localhost IP for testing
-    char mesg[1000];
+    int sockfd, n;
     struct sockaddr_in servaddr, clientaddr;
+    char recv_buf[BUF_SIZE], send_buf[BUF_SIZE];
+    socklen_t addrlen;
+    unsigned short serv_port = 25000;
 
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd < 0) {
-        printf("Socket creation failed\n");
-        exit(1);
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
     }
 
-    bzero(&servaddr, sizeof(servaddr));
+    memset(&servaddr, 0, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
-    inet_aton(serv_ip, &servaddr.sin_addr);  // Convert IP address to binary format
+    servaddr.sin_addr.s_addr = INADDR_ANY;
     servaddr.sin_port = htons(serv_port);
 
-    // Bind the socket to the IP and port
-    if (bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
-        printf("Bind failed\n");
+    if (bind(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) < 0) {
+        perror("Bind failed");
         close(sockfd);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
-    addrlen = sizeof(clientaddr); // Initialize addrlen to the size of the clientaddr structure
-    n = recvfrom(sockfd, mesg, len, 0, (struct sockaddr *)&clientaddr, &addrlen);
-    if (n != -1) {
-        printf("\n\t\t\t*** receive success ***\n");
-    } else {
-        printf("\n\t\t\t*** receive failure ***\n");
+    addrlen = sizeof(clientaddr);
+
+    while (1) {
+        n = recvfrom(sockfd, recv_buf, BUF_SIZE - 1, 0, (struct sockaddr*)&clientaddr, &addrlen);
+        if (n > 0) {
+            recv_buf[n] = '\0';
+            printf("Client: %s\n", recv_buf);
+
+            if (strcasecmp(recv_buf, "bye") == 0) {
+                break;
+            }
+
+            printf("You: ");
+            fgets(send_buf, BUF_SIZE, stdin);
+            send_buf[strcspn(send_buf, "\n")] = '\0'; // remove newline
+
+            sendto(sockfd, send_buf, strlen(send_buf), 0, (struct sockaddr*)&clientaddr, addrlen);
+
+            if (strcasecmp(send_buf, "bye") == 0) {
+                break;
+            }
+        }
     }
 
-    m = sendto(sockfd, mesg, n, 0, (struct sockaddr *)&clientaddr, addrlen);
-    if (m != -1) {
-        printf("\n\t\t\t*** send success ***\n");
-    } else {
-        printf("\n\t\t\t*** send failure ***\n");
-    }
-
-    close(sockfd);  // Close the socket when done
+    close(sockfd);
     return 0;
 }
