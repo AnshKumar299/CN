@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <windows.h>
+#include <unistd.h>
 
 #define TOTAL_FRAMES 20
 #define MAX_SEQ 7  // Sequence numbers range from 0 to MAX_SEQ (modulo arithmetic)
@@ -14,7 +14,7 @@ int isLost() {
 }
 
 void delay(int ms) {
-    Sleep(ms);
+    usleep(ms);
 }
 
 typedef struct {
